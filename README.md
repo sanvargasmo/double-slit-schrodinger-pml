@@ -1,7 +1,6 @@
 # 2D Double-Slit Schrödinger Equation with a Validated PML
 
 [![tests](https://github.com/sanvargasmo/double-slit-schrodinger-pml/actions/workflows/tests.yml/badge.svg)](https://github.com/sanvargasmo/double-slit-schrodinger-pml/actions/workflows/tests.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-1769aa.svg)](LICENSE)
 
 This repository studies the time-dependent two-dimensional Schrödinger
 equation for a double slit in a global plane-wave basis. It preserves the
@@ -22,6 +21,9 @@ calculations.
   Hamiltonian and evolution in the periodic box, without PML.
 - [`notebooks/Untitled28_PML.ipynb`](notebooks/Untitled28_PML.ipynb) — the same
   physical model with an x-only PML and the validated domain sizes.
+- [`notebooks/Parameter_Explorer.ipynb`](notebooks/Parameter_Explorer.ipynb) —
+  an editable configuration cell for testing different geometries, PMLs,
+  spectral cutoffs, packets, and evolution times.
 
 The notebooks are stored without outputs or Colab-specific metadata. The
 already-generated figures below can therefore be inspected directly on GitHub
@@ -118,6 +120,54 @@ The selected value $L_y=6$ therefore keeps the observed transverse periodicity
 effect below two hundredths of a percent relative to the $L_y=7$ calculation
 for this time window.
 
+## Test different parameters
+
+The quickest interactive route is
+[`notebooks/Parameter_Explorer.ipynb`](notebooks/Parameter_Explorer.ipynb).
+Change only its **Parameters** cell and run the cells from top to bottom.
+
+For repeatable command-line experiments, use
+[`scripts/run_experiment.py`](scripts/run_experiment.py). The default command
+uses the validated PML configuration and writes both a figure and a JSON file:
+
+```bash
+python scripts/run_experiment.py
+```
+
+Examples:
+
+```bash
+# Change the PML
+python scripts/run_experiment.py \
+  --pml-start 1.3 --pml-thickness 2.5 \
+  --pml-order 6 --target-reflection 1e-4 \
+  --output results/pml_order_6.png
+
+# Change the double-slit geometry and incident packet
+python scripts/run_experiment.py \
+  --slit-width 0.25 --slit-separation 0.55 \
+  --barrier-thickness 0.15 --barrier-height 3.0 \
+  --k0 24 --t-final 0.30 \
+  --output results/modified_slits.png
+
+# Remove the PML and use a large reference box
+python scripts/run_experiment.py \
+  --no-pml --lx 8 --nx 183 \
+  --output results/large_box.png
+```
+
+Run `python scripts/run_experiment.py --help` to see every available
+parameter. The principal settings are:
+
+| Group | Command-line parameters |
+| --- | --- |
+| Double slit | `--slit-width`, `--slit-separation`, `--barrier-thickness`, `--barrier-height` |
+| PML | `--pml-start`, `--pml-thickness`, `--pml-order`, `--target-reflection` |
+| Box and basis | `--lx`, `--ly`, `--nx`, `--ny`, `--pml` / `--no-pml` |
+| Packet | `--packet-left`, `--packet-right`, `--k0` |
+| Evolution | `--t-final`, `--snapshots` |
+| Plot window | `--view-x-min`, `--view-x-max`, `--view-y-min`, `--view-y-max` |
+
 ## Reproduce the results
 
 ```bash
@@ -140,11 +190,10 @@ the eight automated tests on every push and pull request.
 notebooks/                  Hreal and validated PML notebooks
 src/double_slit_pml/        plane-wave model and diagnostics
 tests/                      eight regression and validation tests
-scripts/                    notebook and figure regeneration
+scripts/run_experiment.py   configurable single-experiment runner
+scripts/                    notebook and validation-figure regeneration
 figures/                    GitHub-ready results and metrics
 ```
 
-## License
-
-MIT — see [`LICENSE`](LICENSE).
+No software license is currently specified for this repository.
 

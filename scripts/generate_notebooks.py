@@ -152,6 +152,111 @@ reflection monitor, and repeats the physical-window density calculation for
 )
 
 
-for name, content in (("Hreal.ipynb", hreal), ("Untitled28_PML.ipynb", pml)):
-    (NOTEBOOKS / name).write_text(json.dumps(content, indent=1) + "\n", encoding="utf-8")
+parameter_explorer = notebook(
+    [
+        markdown(
+            """# Parameter Explorer
 
+Edit the next cell to test a new double-slit or PML configuration. The core
+Hamiltonian code does not need to be modified. Set `USE_PML = False` to run a
+periodic box without an absorbing layer."""
+        ),
+        code(
+            """import numpy as np
+import matplotlib.pyplot as plt
+
+from double_slit_pml.model import (
+    Geometry, PMLSettings, PlaneWaveModel, compact_packet,
+    evolve, project_separable_state, reconstruct,
+)"""
+        ),
+        markdown("## Parameters — edit this cell"),
+        code(
+            """# Double-slit geometry
+SLIT_WIDTH = 0.30
+SLIT_SEPARATION = 0.40
+BARRIER_THICKNESS = 0.20
+BARRIER_HEIGHT = 1.0
+
+# PML and box
+USE_PML = True
+PML_START = 1.50
+PML_THICKNESS = 2.00
+PML_ORDER = 4
+TARGET_REFLECTION = 1e-3
+LY = 6.0
+NX = 80
+NY = 30
+
+# Incident packet and time interval
+PACKET_LEFT = -1.0
+PACKET_RIGHT = -0.525
+K0 = 30.0
+T_FINAL = 0.20
+NUMBER_OF_SNAPSHOTS = 21"""
+        ),
+        code(
+            """geometry = Geometry(
+    slit_width=SLIT_WIDTH,
+    slit_separation=SLIT_SEPARATION,
+    barrier_thickness=BARRIER_THICKNESS,
+    barrier_height=BARRIER_HEIGHT,
+)
+pml = PMLSettings(
+    start=PML_START,
+    thickness=PML_THICKNESS,
+    order=PML_ORDER,
+    target_reflection=TARGET_REFLECTION,
+)
+model = PlaneWaveModel(
+    Lx=pml.outer_half_length,
+    Ly=LY,
+    nx=NX,
+    ny=NY,
+    geometry=geometry,
+    pml=pml if USE_PML else None,
+)
+psi0 = project_separable_state(
+    model,
+    lambda x: compact_packet(x, left=PACKET_LEFT, right=PACKET_RIGHT, k0=K0),
+)
+times = np.linspace(0.0, T_FINAL, NUMBER_OF_SNAPSHOTS)
+states = evolve(model, psi0, times)
+probability = np.sum(np.abs(states)**2, axis=1)
+probability[-1] / probability[0]"""
+        ),
+        code(
+            """x = np.linspace(-1.2, 2.4, 280)
+y = np.linspace(-1.0, 1.0, 180)
+indices = np.unique(np.linspace(0, len(times) - 1, 4, dtype=int))
+
+fig, axes = plt.subplots(1, len(indices), figsize=(12, 3), sharex=True, sharey=True)
+for ax, index in zip(axes, indices):
+    density = np.abs(reconstruct(model, states[index], x, y))**2
+    ax.imshow(density.T, origin='lower', extent=(x.min(), x.max(), y.min(), y.max()),
+              aspect='auto', cmap='magma')
+    ax.set_title(f't = {times[index]:.3f}')
+    ax.set_xlabel('x')
+axes[0].set_ylabel('y')
+plt.tight_layout()
+
+plt.figure(figsize=(6, 3))
+plt.plot(times, probability)
+plt.xlabel('time')
+plt.ylabel('total probability')
+plt.title('Probability retained in the spectral box');"""
+        ),
+        markdown(
+            """For automated parameter studies, use `scripts/run_experiment.py`.
+Run `python scripts/run_experiment.py --help` to list all command-line options."""
+        ),
+    ]
+)
+
+
+for name, content in (
+    ("Hreal.ipynb", hreal),
+    ("Untitled28_PML.ipynb", pml),
+    ("Parameter_Explorer.ipynb", parameter_explorer),
+):
+    (NOTEBOOKS / name).write_text(json.dumps(content, indent=1) + "\n", encoding="utf-8")
