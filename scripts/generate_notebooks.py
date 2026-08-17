@@ -193,7 +193,14 @@ PACKET_LEFT = -1.0
 PACKET_RIGHT = -0.525
 K0 = 30.0
 T_FINAL = 0.20
-NUMBER_OF_SNAPSHOTS = 21"""
+NUMBER_OF_SNAPSHOTS = 21
+
+# Visualization
+NUMBER_OF_PLOTTED_SNAPSHOTS = 9
+PLOT_COLUMNS = 3
+DENSITY_NORMALIZATION = 'physical'  # 'physical' or 'absolute'
+VIEW_X_MIN, VIEW_X_MAX = -1.0, 1.45
+VIEW_Y_MIN, VIEW_Y_MAX = -1.5, 1.5"""
         ),
         code(
             """geometry = Geometry(
@@ -226,25 +233,73 @@ probability = np.sum(np.abs(states)**2, axis=1)
 probability[-1] / probability[0]"""
         ),
         code(
-            """x = np.linspace(-1.2, 2.4, 280)
-y = np.linspace(-1.0, 1.0, 180)
-indices = np.unique(np.linspace(0, len(times) - 1, 4, dtype=int))
+            """x = np.linspace(VIEW_X_MIN, VIEW_X_MAX, 300)
+y = np.linspace(VIEW_Y_MIN, VIEW_Y_MAX, 190)
+indices = np.unique(np.rint(np.linspace(
+    0, len(times) - 1, NUMBER_OF_PLOTTED_SNAPSHOTS
+)).astype(int))
 
-fig, axes = plt.subplots(1, len(indices), figsize=(12, 3), sharex=True, sharey=True)
-for ax, index in zip(axes, indices):
-    density = np.abs(reconstruct(model, states[index], x, y))**2
-    ax.imshow(density.T, origin='lower', extent=(x.min(), x.max(), y.min(), y.max()),
-              aspect='auto', cmap='magma')
-    ax.set_title(f't = {times[index]:.3f}')
+raw_densities = [
+    np.abs(reconstruct(model, states[index], x, y))**2
+    for index in indices
+]
+physical_x = np.abs(x) <= PML_START if USE_PML else np.ones_like(x, dtype=bool)
+physical_probability = np.asarray([
+    np.trapezoid(np.trapezoid(density[physical_x, :], y, axis=1), x[physical_x])
+    for density in raw_densities
+])
+if physical_probability[0] <= np.finfo(float).eps:
+    raise ValueError('The initial state has no probability in the displayed physical region')
+physical_probability_ratio = physical_probability / physical_probability[0]
+
+if DENSITY_NORMALIZATION == 'physical':
+    floor = max(np.finfo(float).eps, 1e-12 * physical_probability[0])
+    densities = [
+        density / p_phys if p_phys > floor else np.zeros_like(density)
+        for density, p_phys in zip(raw_densities, physical_probability)
+    ]
+    colorbar_label = r'$|\\psi|^2/P_{\\rm phys}(t)$'
+elif DENSITY_NORMALIZATION == 'absolute':
+    densities = raw_densities
+    colorbar_label = r'$|\\psi|^2$'
+else:
+    raise ValueError("DENSITY_NORMALIZATION must be 'physical' or 'absolute'")
+
+vmax = max(np.quantile(density, 0.995) for density in densities)
+columns = min(PLOT_COLUMNS, len(indices))
+rows = int(np.ceil(len(indices) / columns))
+fig, axes = plt.subplots(
+    rows, columns, figsize=(3.8 * columns, 3.2 * rows),
+    sharex=True, sharey=True, squeeze=False, constrained_layout=True,
+)
+image = None
+for position, (ax, index, density) in enumerate(zip(axes.flat, indices, densities)):
+    image = ax.imshow(
+        density.T, origin='lower', extent=(x.min(), x.max(), y.min(), y.max()),
+        aspect='auto', cmap='magma', vmin=0.0, vmax=vmax,
+    )
+    ax.set_title(
+        rf'$t={times[index]:.3f}$   '
+        rf'$P_{{\\rm phys}}/P_{{\\rm phys}}(0)={physical_probability_ratio[position]:.3g}$',
+        fontsize=10,
+    )
     ax.set_xlabel('x')
-axes[0].set_ylabel('y')
-plt.tight_layout()
+    if position % columns == 0:
+        ax.set_ylabel('y')
+for ax in axes.flat[len(indices):]:
+    ax.axis('off')
+fig.colorbar(image, ax=axes.ravel().tolist(), label=colorbar_label, shrink=0.85)
 
-plt.figure(figsize=(6, 3))
-plt.plot(times, probability)
+plt.figure(figsize=(7, 3))
+plt.plot(times, probability / probability[0], label=r'$P_{\\rm total}(t)/P_{\\rm total}(0)$')
+plt.plot(
+    times[indices], physical_probability_ratio, marker='o',
+    label=r'$P_{\\rm phys}(t)/P_{\\rm phys}(0)$',
+)
 plt.xlabel('time')
-plt.ylabel('total probability')
-plt.title('Probability retained in the spectral box');"""
+plt.ylabel('retained probability')
+plt.legend()
+plt.tight_layout();"""
         ),
         markdown(
             """For automated parameter studies, use `scripts/run_experiment.py`.
