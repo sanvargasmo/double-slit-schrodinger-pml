@@ -65,6 +65,15 @@ def parser() -> argparse.ArgumentParser:
         default=4,
         help="maximum number of density panels per row",
     )
+    result.add_argument(
+        "--density-normalization",
+        choices=("physical", "absolute"),
+        default="physical",
+        help=(
+            "normalize each panel by the probability remaining in the displayed "
+            "non-PML region, or retain the absolute density"
+        ),
+    )
 
     result.add_argument("--view-x-min", type=float, default=-1.2)
     result.add_argument("--view-x-max", type=float, default=2.4)
@@ -135,8 +144,44 @@ def main() -> None:
     panel_indices = np.unique(
         np.rint(np.linspace(0, args.snapshots - 1, args.plot_snapshots)).astype(int)
     )
-    densities = [np.abs(reconstruct(model, states[index], x, y)) ** 2 for index in panel_indices]
+    raw_densities = [np.abs(reconstruct(model, states[index], x, y)) ** 2 for index in panel_indices]
+
+    # The physical normalization region is the visible part of the domain
+    # before the x-PML interface.  There is no y-PML, so the displayed y-range
+    # is used in full.  Dividing by this integral produces a conditional density
+    # whose integral over the visible physical region is one at every snapshot.
+    physical_x = np.ones_like(x, dtype=bool)
+    if args.pml:
+        physical_x = np.abs(x) <= args.pml_start
+    if np.count_nonzero(physical_x) < 2:
+        raise ValueError("The plot window does not contain a resolvable non-PML x interval")
+
+    physical_probability = np.asarray(
+        [
+            np.trapezoid(
+                np.trapezoid(density[physical_x, :], y, axis=1),
+                x[physical_x],
+            )
+            for density in raw_densities
+        ]
+    )
+    if physical_probability[0] <= np.finfo(float).eps:
+        raise ValueError("The initial state has no probability in the displayed physical region")
+    probability_floor = max(np.finfo(float).eps, 1.0e-12 * physical_probability[0])
+    if args.density_normalization == "physical":
+        densities = [
+            density / physical_probability[position]
+            if physical_probability[position] > probability_floor
+            else np.zeros_like(density)
+            for position, density in enumerate(raw_densities)
+        ]
+        colorbar_label = r"$|\psi|^2/P_{\mathrm{phys}}(t)$"
+    else:
+        densities = raw_densities
+        colorbar_label = r"$|\psi|^2$"
+
     vmax = max(np.quantile(density, 0.995) for density in densities)
+    physical_probability_ratio = physical_probability / physical_probability[0]
 
     panel_count = len(panel_indices)
     panel_columns = min(args.plot_columns, panel_count)
@@ -164,7 +209,11 @@ def main() -> None:
             vmin=0.0,
             vmax=vmax,
         )
-        ax.set_title(f"t = {times[index]:.3f}")
+        ax.set_title(
+            rf"$t={times[index]:.3f}$   "
+            rf"$P_{{\rm phys}}/P_{{\rm phys}}(0)={physical_probability_ratio[column]:.3g}$",
+            fontsize=10,
+        )
         ax.set_xlabel("x")
         if panel_column == 0:
             ax.set_ylabel("y")
@@ -175,11 +224,26 @@ def main() -> None:
         empty_ax.axis("off")
 
     colorbar_ax = fig.add_subplot(grid[:panel_rows, -1])
-    fig.colorbar(image, cax=colorbar_ax, label=r"$|\psi|^2$")
+    fig.colorbar(image, cax=colorbar_ax, label=colorbar_label)
 
     probability_ax = fig.add_subplot(grid[panel_rows, :panel_columns])
-    probability_ax.plot(times, probability, color="#e76f51", lw=2)
-    probability_ax.set(xlabel="time", ylabel="total probability")
+    probability_ax.plot(
+        times,
+        probability / probability[0],
+        color="#e76f51",
+        lw=2,
+        label=r"$P_{\mathrm{total}}(t)/P_{\mathrm{total}}(0)$",
+    )
+    probability_ax.plot(
+        times[panel_indices],
+        physical_probability_ratio,
+        color="#277da1",
+        marker="o",
+        lw=1.5,
+        label=r"$P_{\mathrm{phys}}(t)/P_{\mathrm{phys}}(0)$",
+    )
+    probability_ax.set(xlabel="time", ylabel="retained probability")
+    probability_ax.legend()
     mode = "PML" if args.pml else "no PML"
     fig.suptitle(f"Double slit parameter experiment ({mode})")
 
@@ -200,6 +264,13 @@ def main() -> None:
             "basis_size": model.size,
             "plotted_snapshot_indices": panel_indices.tolist(),
             "plotted_times": times[panel_indices].tolist(),
+            "physical_normalization_x_interval": [
+                float(x[physical_x][0]),
+                float(x[physical_x][-1]),
+            ],
+            "physical_normalization_y_interval": [float(y[0]), float(y[-1])],
+            "plotted_physical_probability": physical_probability.tolist(),
+            "plotted_physical_probability_ratio": physical_probability_ratio.tolist(),
         },
         "times": times.tolist(),
         "total_probability": probability.tolist(),
