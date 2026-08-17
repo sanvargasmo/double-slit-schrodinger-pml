@@ -150,6 +150,12 @@ python scripts/run_experiment.py \
   --k0 24 --t-final 0.30 \
   --output results/modified_slits.png
 
+# Show nine density snapshots from t=0 through t=0.2
+python scripts/run_experiment.py \
+  --t-final 0.2 --snapshots 9 --plot-snapshots 9 \
+  --plot-columns 3 \
+  --output results/nine_snapshots.png
+
 # Remove the PML and use a large reference box
 python scripts/run_experiment.py \
   --no-pml --lx 8 --nx 183 \
@@ -166,6 +172,7 @@ parameter. The principal settings are:
 | Box and basis | `--lx`, `--ly`, `--nx`, `--ny`, `--pml` / `--no-pml` |
 | Packet | `--packet-left`, `--packet-right`, `--k0` |
 | Evolution | `--t-final`, `--snapshots` |
+| Figure layout | `--plot-snapshots`, `--plot-columns` |
 | Plot window | `--view-x-min`, `--view-x-max`, `--view-y-min`, `--view-y-max` |
 
 ## Reproduce the results
@@ -196,4 +203,3 @@ figures/                    GitHub-ready results and metrics
 ```
 
 No software license is currently specified for this repository.
-
