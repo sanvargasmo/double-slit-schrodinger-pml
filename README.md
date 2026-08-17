@@ -172,8 +172,19 @@ parameter. The principal settings are:
 | Box and basis | `--lx`, `--ly`, `--nx`, `--ny`, `--pml` / `--no-pml` |
 | Packet | `--packet-left`, `--packet-right`, `--k0` |
 | Evolution | `--t-final`, `--snapshots` |
-| Figure layout | `--plot-snapshots`, `--plot-columns` |
+| Figure layout | `--plot-snapshots`, `--plot-columns`, `--density-normalization` |
 | Plot window | `--view-x-min`, `--view-x-max`, `--view-y-min`, `--view-y-max` |
+
+The default visualization uses `--density-normalization physical`. At each
+displayed time it plots the conditional density
+$|\psi(x,y,t)|^2/P_{\mathrm{phys}}(t)$, where
+$P_{\mathrm{phys}}(t)$ is integrated over the displayed part of the domain
+before the x-PML interface. This keeps the evolving spatial pattern visible as
+the PML removes probability. Every panel reports
+$P_{\mathrm{phys}}(t)/P_{\mathrm{phys}}(0)$, and the lower plot retains that
+curve so normalization cannot be mistaken for probability conservation. Use
+`--density-normalization absolute` when an absolute-density comparison is
+preferred.
 
 ## Reproduce the results
 
