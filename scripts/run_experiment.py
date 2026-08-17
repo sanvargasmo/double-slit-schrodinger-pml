@@ -52,7 +52,19 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--packet-right", type=float, default=-0.525)
     result.add_argument("--k0", type=float, default=30.0, help="incident x wave number")
     result.add_argument("--t-final", type=float, default=0.20)
-    result.add_argument("--snapshots", type=int, default=21, help="number of evenly spaced saved states")
+    result.add_argument("--snapshots", type=int, default=21, help="number of evenly spaced evolved states")
+    result.add_argument(
+        "--plot-snapshots",
+        type=int,
+        default=8,
+        help="number of evolved states displayed in the output figure",
+    )
+    result.add_argument(
+        "--plot-columns",
+        type=int,
+        default=4,
+        help="maximum number of density panels per row",
+    )
 
     result.add_argument("--view-x-min", type=float, default=-1.2)
     result.add_argument("--view-x-max", type=float, default=2.4)
@@ -68,6 +80,10 @@ def validate(args: argparse.Namespace) -> None:
         raise ValueError("Box half-widths must be positive and spectral cutoffs must be non-negative")
     if args.snapshots < 2 or args.t_final <= 0:
         raise ValueError("Use at least two snapshots and a positive final time")
+    if args.plot_snapshots < 2 or args.plot_snapshots > args.snapshots:
+        raise ValueError("plot-snapshots must be between 2 and snapshots")
+    if args.plot_columns < 1:
+        raise ValueError("plot-columns must be at least one")
     if args.packet_left >= args.packet_right:
         raise ValueError("packet-left must be smaller than packet-right")
     if not 0 < args.target_reflection < 1:
@@ -116,15 +132,29 @@ def main() -> None:
 
     x = np.linspace(args.view_x_min, args.view_x_max, 300)
     y = np.linspace(args.view_y_min, args.view_y_max, 190)
-    panel_indices = np.unique(np.linspace(0, args.snapshots - 1, min(4, args.snapshots), dtype=int))
+    panel_indices = np.unique(
+        np.rint(np.linspace(0, args.snapshots - 1, args.plot_snapshots)).astype(int)
+    )
     densities = [np.abs(reconstruct(model, states[index], x, y)) ** 2 for index in panel_indices]
     vmax = max(np.quantile(density, 0.995) for density in densities)
 
-    fig = plt.figure(figsize=(3.1 * len(panel_indices), 5.3))
-    grid = fig.add_gridspec(2, len(panel_indices), height_ratios=(2.5, 1.0))
+    panel_count = len(panel_indices)
+    panel_columns = min(args.plot_columns, panel_count)
+    panel_rows = int(np.ceil(panel_count / panel_columns))
+    fig = plt.figure(
+        figsize=(3.1 * panel_columns + 0.8, 3.0 * panel_rows + 2.4),
+        layout="constrained",
+    )
+    grid = fig.add_gridspec(
+        panel_rows + 1,
+        panel_columns + 1,
+        width_ratios=(*([1.0] * panel_columns), 0.055),
+        height_ratios=(*([1.0] * panel_rows), 0.55),
+    )
     image = None
     for column, (index, density) in enumerate(zip(panel_indices, densities)):
-        ax = fig.add_subplot(grid[0, column])
+        row, panel_column = divmod(column, panel_columns)
+        ax = fig.add_subplot(grid[row, panel_column])
         image = ax.imshow(
             density.T,
             origin="lower",
@@ -136,15 +166,22 @@ def main() -> None:
         )
         ax.set_title(f"t = {times[index]:.3f}")
         ax.set_xlabel("x")
-        if column == 0:
+        if panel_column == 0:
             ax.set_ylabel("y")
-    probability_ax = fig.add_subplot(grid[1, :])
+
+    for empty_index in range(panel_count, panel_rows * panel_columns):
+        row, panel_column = divmod(empty_index, panel_columns)
+        empty_ax = fig.add_subplot(grid[row, panel_column])
+        empty_ax.axis("off")
+
+    colorbar_ax = fig.add_subplot(grid[:panel_rows, -1])
+    fig.colorbar(image, cax=colorbar_ax, label=r"$|\psi|^2$")
+
+    probability_ax = fig.add_subplot(grid[panel_rows, :panel_columns])
     probability_ax.plot(times, probability, color="#e76f51", lw=2)
     probability_ax.set(xlabel="time", ylabel="total probability")
     mode = "PML" if args.pml else "no PML"
     fig.suptitle(f"Double slit parameter experiment ({mode})")
-    fig.colorbar(image, ax=fig.axes[:-1], label=r"$|\psi|^2$", shrink=0.75, pad=0.015)
-    fig.subplots_adjust(top=0.88, bottom=0.10, hspace=0.40, wspace=0.30)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=180, bbox_inches="tight", facecolor="white")
@@ -157,7 +194,13 @@ def main() -> None:
     configuration["metrics"] = str(metrics_path)
     result = {
         "configuration": configuration,
-        "derived": {"lx": lx, "basis_shape": model.shape, "basis_size": model.size},
+        "derived": {
+            "lx": lx,
+            "basis_shape": model.shape,
+            "basis_size": model.size,
+            "plotted_snapshot_indices": panel_indices.tolist(),
+            "plotted_times": times[panel_indices].tolist(),
+        },
         "times": times.tolist(),
         "total_probability": probability.tolist(),
         "final_probability_ratio": float(probability[-1] / probability[0]),
@@ -170,4 +213,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
