@@ -1,0 +1,19 @@
+{
+  "pml": {
+    "start": 1.5,
+    "thickness": 2.0,
+    "outer_half_length": 3.5,
+    "order": 4,
+    "target_reflection": 0.001,
+    "probability_ratio_t_0_2": 0.023080315534201302
+  },
+  "large_box": {
+    "probability_ratio_t_0_2": 1.000000000000008
+  },
+  "free_packet_reflection_bound_fraction": 1.042534385123874e-06,
+  "double_slit_reflection_bound_fraction": 1.062877867681489e-06,
+  "ly_density_error": {
+    "5_vs_6": 0.00024050039796147884,
+    "6_vs_7": 0.0001648027037797097
+  }
+}

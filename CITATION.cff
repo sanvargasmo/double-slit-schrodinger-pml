@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "2D Double-Slit Schrodinger Equation with a Validated PML"
+type: software
+authors:
+  - family-names: "Vargas Mora"
+    given-names: "Santiago"
+repository-code: "https://github.com/sanvargasmo/double-slit-schrodinger-pml"
+license: MIT
+version: 0.1.0
+date-released: 2026-08-17
+
