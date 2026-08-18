@@ -198,7 +198,7 @@ NUMBER_OF_SNAPSHOTS = 21
 # Visualization
 NUMBER_OF_PLOTTED_SNAPSHOTS = 9
 PLOT_COLUMNS = 3
-DENSITY_NORMALIZATION = 'physical'  # 'physical' or 'absolute'
+DENSITY_NORMALIZATION = 'physical'  # 'physical', 'integral', or 'absolute'
 VIEW_X_MIN, VIEW_X_MAX = -1.0, 1.45
 VIEW_Y_MIN, VIEW_Y_MAX = -1.5, 1.5"""
         ),
@@ -251,21 +251,33 @@ physical_probability = np.asarray([
 if physical_probability[0] <= np.finfo(float).eps:
     raise ValueError('The initial state has no probability in the displayed physical region')
 physical_probability_ratio = physical_probability / physical_probability[0]
+physical_peak_density = np.asarray([
+    np.max(density[physical_x, :]) for density in raw_densities
+])
 
 if DENSITY_NORMALIZATION == 'physical':
+    floor = max(np.finfo(float).eps, 1e-12 * physical_peak_density[0])
+    densities = [
+        density / peak if peak > floor else np.zeros_like(density)
+        for density, peak in zip(raw_densities, physical_peak_density)
+    ]
+    colorbar_label = r'$|\\psi|^2/\\rho_{\\max,\\rm phys}(t)$'
+    vmax = 1.0
+elif DENSITY_NORMALIZATION == 'integral':
     floor = max(np.finfo(float).eps, 1e-12 * physical_probability[0])
     densities = [
         density / p_phys if p_phys > floor else np.zeros_like(density)
         for density, p_phys in zip(raw_densities, physical_probability)
     ]
     colorbar_label = r'$|\\psi|^2/P_{\\rm phys}(t)$'
+    vmax = max(np.quantile(density, 0.995) for density in densities)
 elif DENSITY_NORMALIZATION == 'absolute':
     densities = raw_densities
     colorbar_label = r'$|\\psi|^2$'
+    vmax = max(np.quantile(density, 0.995) for density in densities)
 else:
-    raise ValueError("DENSITY_NORMALIZATION must be 'physical' or 'absolute'")
+    raise ValueError("DENSITY_NORMALIZATION must be 'physical', 'integral', or 'absolute'")
 
-vmax = max(np.quantile(density, 0.995) for density in densities)
 columns = min(PLOT_COLUMNS, len(indices))
 rows = int(np.ceil(len(indices) / columns))
 fig, axes = plt.subplots(
@@ -280,7 +292,7 @@ for position, (ax, index, density) in enumerate(zip(axes.flat, indices, densitie
     )
     ax.set_title(
         rf'$t={times[index]:.3f}$   '
-        rf'$P_{{\\rm phys}}/P_{{\\rm phys}}(0)={physical_probability_ratio[position]:.3g}$',
+        rf'$\\rho_{{\\max,\\rm phys}}={physical_peak_density[position]:.3g}$',
         fontsize=10,
     )
     ax.set_xlabel('x')
