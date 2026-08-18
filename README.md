@@ -176,15 +176,18 @@ parameter. The principal settings are:
 | Plot window | `--view-x-min`, `--view-x-max`, `--view-y-min`, `--view-y-max` |
 
 The default visualization uses `--density-normalization physical`. At each
-displayed time it plots the conditional density
-$|\psi(x,y,t)|^2/P_{\mathrm{phys}}(t)$, where
-$P_{\mathrm{phys}}(t)$ is integrated over the displayed part of the domain
-before the x-PML interface. This keeps the evolving spatial pattern visible as
-the PML removes probability. Every panel reports
-$P_{\mathrm{phys}}(t)/P_{\mathrm{phys}}(0)$, and the lower plot retains that
-curve so normalization cannot be mistaken for probability conservation. Use
-`--density-normalization absolute` when an absolute-density comparison is
-preferred.
+displayed time it finds the maximum density in the displayed part of the domain
+before the x-PML interface,
+$\rho_{\max,\mathrm{phys}}(t)=\max_{\mathrm{phys}}|\psi(x,y,t)|^2$, and plots
+$|\psi|^2/\rho_{\max,\mathrm{phys}}(t)$. Thus the physical-region peak is one
+in every panel and the evolving pattern remains visible as its absolute
+amplitude decreases. The unscaled peak used as the denominator is printed in
+each panel. The lower plot still reports the integrated probabilities, so this
+display rescaling cannot be mistaken for probability conservation.
+
+Use `--density-normalization integral` for the conditional density
+$|\psi|^2/P_{\mathrm{phys}}(t)$, or `--density-normalization absolute` for the
+unscaled density.
 
 ## Reproduce the results
 
