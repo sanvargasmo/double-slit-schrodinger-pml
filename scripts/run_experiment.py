@@ -67,11 +67,12 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument(
         "--density-normalization",
-        choices=("physical", "absolute"),
+        choices=("physical", "integral", "absolute"),
         default="physical",
         help=(
-            "normalize each panel by the probability remaining in the displayed "
-            "non-PML region, or retain the absolute density"
+            "normalize each panel by the maximum density in the displayed non-PML "
+            "region; use integral for conditional-density normalization, or absolute "
+            "to retain the unscaled density"
         ),
     )
 
@@ -147,9 +148,8 @@ def main() -> None:
     raw_densities = [np.abs(reconstruct(model, states[index], x, y)) ** 2 for index in panel_indices]
 
     # The physical normalization region is the visible part of the domain
-    # before the x-PML interface.  There is no y-PML, so the displayed y-range
-    # is used in full.  Dividing by this integral produces a conditional density
-    # whose integral over the visible physical region is one at every snapshot.
+    # before the x-PML interface. There is no y-PML, so the displayed y-range
+    # is used in full.
     physical_x = np.ones_like(x, dtype=bool)
     if args.pml:
         physical_x = np.abs(x) <= args.pml_start
@@ -167,8 +167,22 @@ def main() -> None:
     )
     if physical_probability[0] <= np.finfo(float).eps:
         raise ValueError("The initial state has no probability in the displayed physical region")
-    probability_floor = max(np.finfo(float).eps, 1.0e-12 * physical_probability[0])
+
+    physical_peak_density = np.asarray(
+        [np.max(density[physical_x, :]) for density in raw_densities]
+    )
+    peak_floor = max(np.finfo(float).eps, 1.0e-12 * physical_peak_density[0])
     if args.density_normalization == "physical":
+        densities = [
+            density / physical_peak_density[position]
+            if physical_peak_density[position] > peak_floor
+            else np.zeros_like(density)
+            for position, density in enumerate(raw_densities)
+        ]
+        colorbar_label = r"$|\psi|^2/\rho_{\max,\mathrm{phys}}(t)$"
+        vmax = 1.0
+    elif args.density_normalization == "integral":
+        probability_floor = max(np.finfo(float).eps, 1.0e-12 * physical_probability[0])
         densities = [
             density / physical_probability[position]
             if physical_probability[position] > probability_floor
@@ -176,11 +190,12 @@ def main() -> None:
             for position, density in enumerate(raw_densities)
         ]
         colorbar_label = r"$|\psi|^2/P_{\mathrm{phys}}(t)$"
+        vmax = max(np.quantile(density, 0.995) for density in densities)
     else:
         densities = raw_densities
         colorbar_label = r"$|\psi|^2$"
+        vmax = max(np.quantile(density, 0.995) for density in densities)
 
-    vmax = max(np.quantile(density, 0.995) for density in densities)
     physical_probability_ratio = physical_probability / physical_probability[0]
 
     panel_count = len(panel_indices)
@@ -211,7 +226,7 @@ def main() -> None:
         )
         ax.set_title(
             rf"$t={times[index]:.3f}$   "
-            rf"$P_{{\rm phys}}/P_{{\rm phys}}(0)={physical_probability_ratio[column]:.3g}$",
+            rf"$\rho_{{\max,\rm phys}}={physical_peak_density[column]:.3g}$",
             fontsize=10,
         )
         ax.set_xlabel("x")
@@ -271,6 +286,7 @@ def main() -> None:
             "physical_normalization_y_interval": [float(y[0]), float(y[-1])],
             "plotted_physical_probability": physical_probability.tolist(),
             "plotted_physical_probability_ratio": physical_probability_ratio.tolist(),
+            "plotted_physical_peak_density": physical_peak_density.tolist(),
         },
         "times": times.tolist(),
         "total_probability": probability.tolist(),
