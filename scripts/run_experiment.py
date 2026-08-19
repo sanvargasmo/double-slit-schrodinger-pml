@@ -16,6 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import PowerNorm
 
 from double_slit_pml.model import (
     Geometry,
@@ -75,6 +76,18 @@ def parser() -> argparse.ArgumentParser:
             "to retain the unscaled density"
         ),
     )
+    result.add_argument(
+        "--colormap",
+        type=str,
+        default="turbo",
+        help="Matplotlib colormap used for density panels",
+    )
+    result.add_argument(
+        "--color-gamma",
+        type=float,
+        default=0.5,
+        help="color power-law exponent; values below one emphasize low densities",
+    )
 
     result.add_argument("--view-x-min", type=float, default=-1.2)
     result.add_argument("--view-x-max", type=float, default=2.4)
@@ -94,6 +107,10 @@ def validate(args: argparse.Namespace) -> None:
         raise ValueError("plot-snapshots must be between 2 and snapshots")
     if args.plot_columns < 1:
         raise ValueError("plot-columns must be at least one")
+    if args.color_gamma <= 0.0:
+        raise ValueError("color-gamma must be positive")
+    if args.colormap not in matplotlib.colormaps:
+        raise ValueError(f"Unknown Matplotlib colormap: {args.colormap}")
     if args.packet_left >= args.packet_right:
         raise ValueError("packet-left must be smaller than packet-right")
     if not 0 < args.target_reflection < 1:
@@ -197,6 +214,7 @@ def main() -> None:
         vmax = max(np.quantile(density, 0.995) for density in densities)
 
     physical_probability_ratio = physical_probability / physical_probability[0]
+    color_norm = PowerNorm(gamma=args.color_gamma, vmin=0.0, vmax=vmax)
 
     panel_count = len(panel_indices)
     panel_columns = min(args.plot_columns, panel_count)
@@ -220,9 +238,8 @@ def main() -> None:
             origin="lower",
             extent=(args.view_x_min, args.view_x_max, args.view_y_min, args.view_y_max),
             aspect="auto",
-            cmap="magma",
-            vmin=0.0,
-            vmax=vmax,
+            cmap=args.colormap,
+            norm=color_norm,
         )
         ax.set_title(
             rf"$t={times[index]:.3f}$   "
@@ -287,6 +304,12 @@ def main() -> None:
             "plotted_physical_probability": physical_probability.tolist(),
             "plotted_physical_probability_ratio": physical_probability_ratio.tolist(),
             "plotted_physical_peak_density": physical_peak_density.tolist(),
+            "color_scale": {
+                "colormap": args.colormap,
+                "gamma": args.color_gamma,
+                "vmin": 0.0,
+                "vmax": vmax,
+            },
         },
         "times": times.tolist(),
         "total_probability": probability.tolist(),
