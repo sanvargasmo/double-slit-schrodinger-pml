@@ -172,7 +172,7 @@ parameter. The principal settings are:
 | Box and basis | `--lx`, `--ly`, `--nx`, `--ny`, `--pml` / `--no-pml` |
 | Packet | `--packet-left`, `--packet-right`, `--k0` |
 | Evolution | `--t-final`, `--snapshots` |
-| Figure layout | `--plot-snapshots`, `--plot-columns`, `--density-normalization` |
+| Figure layout | `--plot-snapshots`, `--plot-columns`, `--density-normalization`, `--colormap`, `--color-gamma` |
 | Plot window | `--view-x-min`, `--view-x-max`, `--view-y-min`, `--view-y-max` |
 
 The default visualization uses `--density-normalization physical`. At each
@@ -188,6 +188,20 @@ display rescaling cannot be mistaken for probability conservation.
 Use `--density-normalization integral` for the conditional density
 $|\psi|^2/P_{\mathrm{phys}}(t)$, or `--density-normalization absolute` for the
 unscaled density.
+
+The default color mapping is `--colormap turbo --color-gamma 0.5`. Low density
+is blue rather than black, while intermediate and high density progress through
+green, yellow, and red. The power-law color exponent makes weak structures more
+visible without changing the density values: `--color-gamma 1` restores a
+linear color scale, while a smaller positive value emphasizes low densities
+more strongly. For example:
+
+```bash
+python scripts/run_experiment.py \
+  --density-normalization physical \
+  --colormap turbo --color-gamma 0.4 \
+  --output results/high_contrast.png
+```
 
 ## Reproduce the results
 
