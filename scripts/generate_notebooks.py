@@ -50,6 +50,7 @@ clean implementation can be regression-tested against them."""
         code(
             """import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import PowerNorm
 
 from double_slit_pml.model import (
     PlaneWaveModel, build_hamiltonian, compact_packet,
@@ -199,6 +200,8 @@ NUMBER_OF_SNAPSHOTS = 21
 NUMBER_OF_PLOTTED_SNAPSHOTS = 9
 PLOT_COLUMNS = 3
 DENSITY_NORMALIZATION = 'physical'  # 'physical', 'integral', or 'absolute'
+COLORMAP = 'turbo'
+COLOR_GAMMA = 0.5  # below 1 emphasizes low densities; 1 is linear
 VIEW_X_MIN, VIEW_X_MAX = -1.0, 1.45
 VIEW_Y_MIN, VIEW_Y_MAX = -1.5, 1.5"""
         ),
@@ -278,6 +281,10 @@ elif DENSITY_NORMALIZATION == 'absolute':
 else:
     raise ValueError("DENSITY_NORMALIZATION must be 'physical', 'integral', or 'absolute'")
 
+if COLOR_GAMMA <= 0:
+    raise ValueError('COLOR_GAMMA must be positive')
+color_norm = PowerNorm(gamma=COLOR_GAMMA, vmin=0.0, vmax=vmax)
+
 columns = min(PLOT_COLUMNS, len(indices))
 rows = int(np.ceil(len(indices) / columns))
 fig, axes = plt.subplots(
@@ -288,7 +295,7 @@ image = None
 for position, (ax, index, density) in enumerate(zip(axes.flat, indices, densities)):
     image = ax.imshow(
         density.T, origin='lower', extent=(x.min(), x.max(), y.min(), y.max()),
-        aspect='auto', cmap='magma', vmin=0.0, vmax=vmax,
+        aspect='auto', cmap=COLORMAP, norm=color_norm,
     )
     ax.set_title(
         rf'$t={times[index]:.3f}$   '
