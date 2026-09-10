@@ -29,9 +29,66 @@ The notebooks are stored without outputs or Colab-specific metadata. The
 already-generated figures below can therefore be inspected directly on GitHub
 without running a notebook.
 
-| No PML (`Hreal`) | With x-only PML |
-| --- | --- |
-| ![Hreal evolution](figures/hreal_evolution.png) | ![PML evolution](figures/pml_evolution.png) |
+### Double-slit evolution with a high barrier
+
+These two simulations use **identical parameters**, with the x-PML switched
+on or off. The barrier height is **$V_0=1500$**, above the incident central
+kinetic energy $E_0=k_0^2/2=450$ for $k_0=30$ ($\hbar=m=1$). The previous
+$V_0=1$ illustrations were almost transparent at that energy. Here the opaque
+screen reflects the incident packet while the two apertures produce the
+transmitted interference pattern, particularly around $t=0.05$.
+
+**Without PML — periodic plane-wave box**
+
+![Nine normalized density snapshots without PML](figures/hreal_evolution.jpg)
+
+**With x-only PML — same box, packet, and barrier**
+
+![Nine normalized density snapshots with PML](figures/pml_evolution.jpg)
+
+Each panel displays $|\psi(x,y,t)|^2/\rho_{\max,\mathrm{phys}}(t)$ using the
+existing `physical` normalization in `scripts/run_experiment.py`, with the
+`turbo` colormap and color exponent $0.5$. This rescales the display at each
+instant so spreading and absorption do not make the pattern fade to an empty
+panel. **The evolving wave function is not renormalized.** The unscaled peak
+is printed above each panel, and the lower curves retain the actual total
+probability and the probability inside the displayed physical window.
+White outlines mark the solid barrier, leaving the two slits open.
+
+| Illustration parameter | Value in both simulations |
+| --- | ---: |
+| Barrier height / thickness | $1500$ / $0.20$ |
+| Slit width / centre separation | $0.30$ / $0.40$ |
+| Box half-widths | $L_x=3.5$, $L_y=6$ |
+| Plane-wave index cutoffs | $n_x=120$, $n_y=100$ |
+| Initial packet | $-1<x<-0.525$, $k_0=30$; uniform in y |
+| Nine displayed times | $0, 0.025, \ldots, 0.20$ |
+| Display / normalization window | $\lvert x\rvert\leq1.4$, $\lvert y\rvert\leq1$ |
+| PML when enabled | start $1.5$, thickness $2$, order $4$, target $10^{-3}$ |
+
+At late times, the normalized panels emphasize the **remaining** density;
+they do not imply that its absolute magnitude stays constant. Without PML,
+the periodic x boundary permits the packet to return; with PML, outgoing
+probability is absorbed. Both images are generated directly from the model:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/generate_readme_evolution.py
+```
+
+The matching configuration and probability histories are saved in
+[`figures/hreal_evolution.json`](figures/hreal_evolution.json) and
+[`figures/pml_evolution.json`](figures/pml_evolution.json).
+
+A resolution spot check at $t=0.05$ compares $(n_x,n_y)=(120,100)$ with
+$(160,140)$ in the transmitted window $0.12\leq x\leq1.4$, $|y|\leq1$.
+The relative density L2 difference is **3.67%**. This checks the illustrated
+interference pattern at that time, rather than convergence over the entire
+evolution. Reproduce it with `python scripts/check_readme_resolution.py`;
+see [`figures/evolution_resolution.json`](figures/evolution_resolution.json).
+
+The quantitative PML benchmarks below retain their original **$V_0=1$**
+configuration (or $V_0=0$ for the free packet). Their reported reflection and
+transverse-box errors do not certify the new $V_0=1500$ illustrations.
 
 ## Model
 
@@ -70,8 +127,8 @@ operator in the physical region is unchanged.
 
 ## Does the PML work?
 
-Yes, for the simulated window $0\leq t\leq0.2$ and the stated spectral
-cutoffs. Two checks support that conclusion.
+For the original $V_0=1$ benchmark configuration, yes, for the simulated
+window $0\leq t\leq0.2$ and the stated spectral cutoffs. Two checks support that conclusion.
 
 First, a freely propagating packet is compared with a conservative box of
 $L_x=8$. At $t=0.2$ the large box retains probability to numerical precision,
@@ -214,7 +271,9 @@ python scripts/generate_notebooks.py
 python scripts/generate_figures.py
 ```
 
-The figure script writes the exact reported numbers to
+The figure script regenerates the original validation benchmarks and then
+the normalized high-barrier evolution images. It writes the reported
+benchmark numbers to
 [`figures/validation_metrics.json`](figures/validation_metrics.json). The
 workflow in [`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs
 the eight automated tests on every push and pull request.

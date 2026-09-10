@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import PowerNorm
+from matplotlib.patches import Rectangle
 
 from double_slit_pml.model import (
     Geometry,
@@ -117,8 +118,8 @@ def validate(args: argparse.Namespace) -> None:
         raise ValueError("target-reflection must lie strictly between zero and one")
 
 
-def main() -> None:
-    args = parser().parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parser().parse_args(argv)
     validate(args)
 
     geometry = Geometry(
@@ -241,6 +242,26 @@ def main() -> None:
             cmap=args.colormap,
             norm=color_norm,
         )
+        # Outline the actual potential mask, leaving the two apertures open.
+        a, c = geometry.slit_width, geometry.slit_separation
+        solid_segments = (
+            (args.view_y_min, -(c + a) / 2),
+            (-(c - a) / 2, (c - a) / 2),
+            ((c + a) / 2, args.view_y_max),
+        )
+        if geometry.barrier_height > 0:
+            for bottom, top in solid_segments:
+                bottom, top = max(bottom, args.view_y_min), min(top, args.view_y_max)
+                if top > bottom:
+                    ax.add_patch(Rectangle(
+                        (-geometry.barrier_thickness / 2, bottom),
+                        geometry.barrier_thickness, top - bottom,
+                        facecolor="none", edgecolor="white", linewidth=0.8,
+                    ))
+        if args.pml:
+            for interface in (-args.pml_start, args.pml_start):
+                if args.view_x_min < interface < args.view_x_max:
+                    ax.axvline(interface, color="white", linestyle="--", linewidth=0.8)
         ax.set_title(
             rf"$t={times[index]:.3f}$   "
             rf"$\rho_{{\max,\rm phys}}={physical_peak_density[column]:.3g}$",
@@ -277,7 +298,10 @@ def main() -> None:
     probability_ax.set(xlabel="time", ylabel="retained probability")
     probability_ax.legend()
     mode = "PML" if args.pml else "no PML"
-    fig.suptitle(f"Double slit parameter experiment ({mode})")
+    fig.suptitle(
+        f"Double slit ({mode}) — V₀ = {args.barrier_height:g}, k₀ = {args.k0:g}\n"
+        f"Density display: {args.density_normalization}; color gamma = {args.color_gamma:g}"
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=180, bbox_inches="tight", facecolor="white")

@@ -1,0 +1,23 @@
+{
+  "time": 0.05,
+  "window": {
+    "x": [
+      0.12,
+      1.4
+    ],
+    "y": [
+      -1,
+      1
+    ]
+  },
+  "coarse_cutoffs": [
+    120,
+    100
+  ],
+  "fine_cutoffs": [
+    160,
+    140
+  ],
+  "relative_density_l2_error": 0.03665214828691211,
+  "normalized_density_l2_error": 0.0442938269752573
+}

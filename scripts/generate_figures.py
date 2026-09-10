@@ -152,35 +152,12 @@ def main() -> None:
     fig.tight_layout()
     save(fig, "geometry_and_pml.png")
 
-    # Hreal: the original periodic plane-wave box, intentionally without PML.
-    hreal = PlaneWaveModel(Lx=1.0, Ly=1.0, nx=22, ny=18)
-    hreal_state = project_separable_state(hreal, lambda x: compact_packet(x, k0=12.0))
-    hreal_times = np.array([0.0, 0.05, 0.10, 0.15])
-    hreal_states = evolve(hreal, hreal_state, hreal_times)
-    density_panel(
-        hreal,
-        hreal_states,
-        hreal_times,
-        "hreal_evolution.png",
-        (-1.0, 1.0),
-        "Hreal: evolution in the periodic plane-wave box (no PML)",
-    )
-
     # The actual double-slit calculation with the validated x-only PML.
     pml_model = PlaneWaveModel(Lx=3.5, Ly=6.0, nx=80, ny=30, pml=settings)
     packet = lambda x: compact_packet(x, k0=30.0)
     pml_state = project_separable_state(pml_model, packet)
     pml_times = np.linspace(0.0, 0.2, 21)
     pml_states = evolve(pml_model, pml_state, pml_times)
-    density_panel(
-        pml_model,
-        pml_states[[0, 5, 10, 20]],
-        pml_times[[0, 5, 10, 20]],
-        "pml_evolution.png",
-        (-1.2, 2.4),
-        "Double slit with an x-only PML (physical window shown)",
-    )
-
     # Independent free-packet benchmark: PML against a large conservative box.
     free = Geometry(barrier_height=0.0)
     benchmark_pml = PlaneWaveModel(Lx=3.5, Ly=1.0, nx=80, ny=0, geometry=free, pml=settings)
@@ -282,6 +259,12 @@ def main() -> None:
     }
     (FIGURES / "validation_metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(metrics, indent=2))
+
+    # The README illustrations use a stronger barrier and the existing
+    # per-frame normalized viewer; retain V0=1 for the benchmarks above.
+    from generate_readme_evolution import main as generate_readme_evolution
+
+    generate_readme_evolution()
 
 
 if __name__ == "__main__":
