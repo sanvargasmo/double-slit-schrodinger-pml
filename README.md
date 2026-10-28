@@ -125,6 +125,29 @@ operator in the physical region is unchanged.
 | Initial packet support | $-1<x<-0.525$ |
 | Minimum packet-to-PML buffer | $0.5$ |
 
+## PML reference and scope
+
+The PML formulation used in this project follows the complex-coordinate-stretching
+approach discussed for the ordinary, positive-mass Schrödinger equation in
+Section 3.1 of:
+
+> W. Pötz, “Perfectly matched layers for Schrödinger-type equations with
+> nontrivial energy–momentum dispersion,” *Computer Physics Communications*
+> **257**, 107503 (2020).
+> [https://doi.org/10.1016/j.cpc.2020.107503](https://doi.org/10.1016/j.cpc.2020.107503).
+
+For this single-band dispersion, the paper's coordinate extension reduces to
+$x' = x + i\\gamma(x)$. With $\\sigma(x)=\\gamma'(x)$, its derivative substitution
+is $\\partial_x \\to [1+i\\sigma(x)]^{-1}\\partial_x$, yielding the stretched
+second derivative shown above.
+
+Our implementation adapts this continuum formulation to a plane-wave spectral
+Galerkin solver, with a quartic absorption profile in the two x-boundary layers.
+The y direction remains periodic and is checked separately for convergence.
+The paper's generalized constructions for nonmonotonic or multiband dispersion
+are not implemented here. The profile parameters and finite-domain numerical
+validation are specific to this repository.
+
 ## Does the PML work?
 
 For the original $V_0=1$ benchmark configuration, yes, for the simulated
